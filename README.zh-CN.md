@@ -1,6 +1,8 @@
 # test-cpp-code（中文版）
 
-> English version: [README.md](README.md)
+<p align="center">
+  <a href="README.md">English</a> &nbsp;|&nbsp; <b>中文</b>
+</p>
 
 写 C++ 小验证片段的试验台：**一个 `.cpp` = 一个能直接跑的程序。**
 `make run` 编译并运行，`make watch` 保存就重跑，`make test` 全量跑一遍并给出

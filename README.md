@@ -4,7 +4,9 @@ A scratchpad for small C++ probes: **one `.cpp` file = one runnable program.**
 `make run` compiles and runs it, `make watch` reruns on every save, and
 `make test` runs the whole folder and reports pass/fail.
 
-[Chinese version](README.zh-CN.md)
+<p align="center">
+  <b>English</b> &nbsp;|&nbsp; <a href="README.zh-CN.md">Chinese</a>
+</p>
 
 > Verified on this machine's WSL: Ubuntu, g++ 15.2.0, GNU Make 4.4.1.
 > Everything below runs in a WSL terminal.
