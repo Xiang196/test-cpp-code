@@ -51,6 +51,7 @@ make check              compile only (fast syntax check)
 make new NAME=NAME      create a snippet (DESC="one line" optional)
 make edit S=NAME        open with $EDITOR (default: code)
 make clean              remove bin/ and .cache/
+make commit M="msg"     test, commit and push (tools/commit.sh)
 make help               full help
 ```
 
@@ -59,6 +60,17 @@ Names do not have to be exact: `make run S=string` resolves to
 listed so you can pick a full name. `S=` also accepts a file name or a path
 (`S=cpp20-string-view.cpp`, `S=snippets/cpp20-string-view.cpp`), so tab
 completion and pasted paths work.
+
+## Committing
+
+`tools/commit.sh` runs `make test`, stages everything, commits and pushes:
+
+```bash
+./tools/commit.sh "docs: update default flags"
+make commit M="docs: update default flags"   # same thing
+```
+
+`--no-test` skips the test gate, `--no-push` stops after the commit.
 
 ## Snippet header convention
 
@@ -84,7 +96,47 @@ int main() {
   `return tc::summary()`. `make test` then knows which snippet broke.
 - **Just want output**: plain `std::cout` is fine; exit code 0 counts as a pass.
 
-Standard precedence: **command-line `STD=` > `// @std:` header > default `c++20`**.
+Standard precedence: **command-line `STD=` > `// @std:` header > default `c++17`**.
+
+## Default flags
+
+Every snippet is compiled with:
+
+```text
+-std=c++17 -O0 -Wall -Werror -Wextra -Wconversion -Wno-unused-result -Wvla -Wpedantic
+```
+
+- `-Werror` turns any warning into a build failure, so `make test` is strict.
+- `-Wconversion` flags implicit narrowing; add an explicit `static_cast` or
+  change the types when it complains.
+- `-Wno-unused-result` keeps functions like `write(2)` quiet when the result is
+  intentionally ignored.
+- `-Wvla` rejects variable-length arrays (a GNU extension, not standard C++).
+- A snippet may raise the standard with `// @std: c++23`; override everything
+  for one run with `STD=c++23`, `WARN="-Wall -Wextra"`, `OPT=-O2`, or
+  `CXXFLAGS="..."`.
+
+## Naming snippets
+
+`make list` sorts by file name and `make run S=...` resolves by exact match then
+unique substring, so the file name is the handle you actually type.
+
+- **lowercase kebab-case, ASCII only**: `cpp23-expected.cpp`, not `Test.CPP`.
+- **pick one prefix axis for the whole folder** - either the standard
+  (`cpp17-`, `cpp20-`, `cpp23-`) or the area (`stl-`, `tpl-`, `thread-`,
+  `perf-`, `idiom-`). `tc-` is reserved for snippets that demo the tool itself.
+- **the rest is the subject**: `cpp20-string-view.cpp`,
+  `stl-map-insert-order.cpp`, `thread-jthread-stop-token.cpp`.
+- **keep it under about 40 characters** so it still fits one line in `make list`.
+- **put the distinguishing word early**: `S=` does substring matching, so
+  `string-view` and `string-view-trim` both match `S=string-view`, while
+  `S=trim` stays unambiguous.
+- `@desc` carries the *why*; the name only has to make the snippet findable.
+
+Avoid `test.cpp`, `tmp.cpp`, `1.cpp`: they collide, make `make run` ambiguous,
+and say nothing about what the snippet does. When a scratch probe becomes
+something worth keeping, rename it:
+`git mv snippets/scratch-x.cpp snippets/cpp23-x.cpp`.
 
 ## Layout
 

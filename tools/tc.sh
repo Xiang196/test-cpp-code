@@ -26,9 +26,9 @@ CACHE=.cache
 # ---- Configurable; the Makefile exports its variables, so ---------------
 # ---- `make run S=foo STD=c++23 SAN=1` reaches this script. --------------
 CXX=${CXX:-g++}
-STD=${STD:-c++20}
+STD=${STD:-c++17}
 OPT=${OPT:--O0}
-WARN=${WARN:--Wall -Wextra -Wpedantic -Wshadow}
+WARN=${WARN:--Wall -Werror -Wextra -Wconversion -Wno-unused-result -Wvla -Wpedantic}
 CXXFLAGS=${CXXFLAGS:-}
 SAN=${SAN:-0}
 ARGS=${ARGS:-}
@@ -479,14 +479,17 @@ test-cpp-code - write small C++ snippets, compile and run them with one command.
   make new NAME=NAME      create a snippet (optional: DESC="one line")
   make edit S=NAME        open a snippet with $EDITOR (default: code)
   make clean              remove bin/ and .cache/
+  make commit M="msg"     run tests, then commit and push
   make help               this help
 
 S=NAME accepts a snippet name (hello), a file name (hello.cpp) or a path
 (snippets/hello.cpp); a unique substring such as S=string also works.
 
 Variables, overridable on the command line:
-  STD=c++23        standard. Precedence: command-line STD= > // @std: > c++20
+  STD=c++23        standard. Precedence: command-line STD= > // @std: > c++17
   OPT=-O2          optimization, default -O0
+  WARN="-Wall"     warning flags. Default:
+                   -Wall -Werror -Wextra -Wconversion -Wno-unused-result -Wvla -Wpedantic
   SAN=1            enable ASan + UBSan
   ARGS="..."       command-line arguments passed to the snippet
   CXX=clang++      use another compiler

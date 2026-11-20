@@ -8,6 +8,9 @@
 #
 # Full usage: make help
 #
+# Defaults: -std=c++17 -O0
+#           -Wall -Werror -Wextra -Wconversion -Wno-unused-result -Wvla -Wpedantic
+#
 # This Makefile only holds shortcuts and variables; the real logic lives in
 # tools/tc.sh, so adding a feature means editing one file.
 # ============================================================================
@@ -17,16 +20,17 @@ SHELL := /bin/bash
 
 # ---- Overridable variables: make run S=foo STD=c++23 SAN=1 ----------------
 CXX      ?= g++
-# STD is intentionally not defaulted here: the default c++20 lives in
+# STD is intentionally not defaulted here: the default c++17 lives in
 # tools/tc.sh. That way only an explicit command-line STD= overrides the
 # // @std: header inside a snippet; otherwise the header wins.
 STD      ?=
 OPT      ?= -O0
-WARN     ?= -Wall -Wextra -Wpedantic -Wshadow
+WARN     ?= -Wall -Werror -Wextra -Wconversion -Wno-unused-result -Wvla -Wpedantic
 CXXFLAGS ?=
 SAN      ?= 0
 S        ?=
 ARGS     ?=
+M        ?=
 
 # Did the user pass STD= on the command line (or via the environment)?
 # If so, it overrides the snippet's // @std: header.
@@ -37,7 +41,7 @@ export CXX STD OPT WARN CXXFLAGS SAN ARGS TC_FORCE_STD
 TC := ./tools/tc.sh
 BASH ?= bash
 
-.PHONY: list ls run watch test check new clean edit help
+.PHONY: list ls run watch test check new clean edit commit help
 
 list:                 # list all snippets (default target)
 	@$(BASH) $(TC) list
@@ -64,6 +68,9 @@ edit:                 # open a snippet with $EDITOR: make edit S=xxx
 
 clean:                # remove bin/ and .cache/
 	@$(BASH) $(TC) clean
+
+commit:               # test, commit and push: make commit M="message"
+	@$(BASH) ./tools/commit.sh "$(M)"
 
 help:                 # show full help
 	@$(BASH) $(TC) help

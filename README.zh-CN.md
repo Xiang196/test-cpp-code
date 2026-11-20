@@ -51,6 +51,7 @@ make check              只编译不运行（快速查语法）
 make new NAME=NAME      新建片段（DESC="一句话" 可选）
 make edit S=NAME        用 $EDITOR（默认 code）打开片段
 make clean              删掉 bin/ 和 .cache/
+make commit M="msg"     跑测试、提交并推送（tools/commit.sh）
 make help               完整帮助
 ```
 
@@ -58,6 +59,17 @@ make help               完整帮助
 `cpp20-string-view`；匹配到多个会把候选列出来，让你换全名。`S=` 也接受文件名或
 路径（`S=cpp20-string-view.cpp`、`S=snippets/cpp20-string-view.cpp`），所以
 Tab 补全和直接粘路径都行。
+
+## 提交
+
+`tools/commit.sh` 会先跑 `make test`，再 `git add -A`、提交并推送：
+
+```bash
+./tools/commit.sh "docs: update default flags"
+make commit M="docs: update default flags"   # 等价写法
+```
+
+`--no-test` 跳过测试关卡，`--no-push` 只提交不推送。
 
 ## 片段文件头约定
 
@@ -82,7 +94,42 @@ int main() {
   `return tc::summary()`。这样 `make test` 能看出哪个片段挂了。
 - **只是看看输出**：不用断言，直接 `std::cout`，退出码 0 就算通过。
 
-标准优先级：**命令行 `STD=` > 片段头 `// @std:` > 默认 `c++20`**。
+标准优先级：**命令行 `STD=` > 片段头 `// @std:` > 默认 `c++17`**。
+
+## 默认编译选项
+
+每个片段都用这组选项编译：
+
+```text
+-std=c++17 -O0 -Wall -Werror -Wextra -Wconversion -Wno-unused-result -Wvla -Wpedantic
+```
+
+- `-Werror` 把警告当错误，所以 `make test` 是严格的。
+- `-Wconversion` 会报隐式窄化转换；报了就加显式 `static_cast` 或改类型。
+- `-Wno-unused-result` 让 `write(2)` 这类故意忽略返回值的调用不报警。
+- `-Wvla` 拒绝变长数组（GNU 扩展，不是标准 C++）。
+- 片段可以用 `// @std: c++23` 提高标准；临时覆盖整套选项用 `STD=c++23`、
+  `WARN="-Wall -Wextra"`、`OPT=-O2` 或 `CXXFLAGS="..."`。
+
+## 片段命名
+
+`make list` 按文件名排序，`make run S=...` 先精确匹配再唯一子串匹配，所以文件名
+就是你要敲的那个句柄。
+
+- **全小写 kebab-case，只用 ASCII**：`cpp23-expected.cpp`，不要 `Test.CPP`。
+- **整个文件夹只用一个前缀维度**：要么按标准（`cpp17-`、`cpp20-`、`cpp23-`），
+  要么按领域（`stl-`、`tpl-`、`thread-`、`perf-`、`idiom-`）。`tc-` 留给演示
+  工具本身的片段。
+- **后面的部分是主题**：`cpp20-string-view.cpp`、`stl-map-insert-order.cpp`、
+  `thread-jthread-stop-token.cpp`。
+- **控制在 40 个字符以内**，这样 `make list` 一行放得下。
+- **区分的词放前面**：`S=` 是子串匹配，`string-view` 和 `string-view-trim` 都会
+  被 `S=string-view` 命中，而 `S=trim` 仍然唯一。
+- `@desc` 负责写清“为什么”；文件名只负责让人以后能找到它。
+
+别用 `test.cpp`、`tmp.cpp`、`1.cpp`：名字会撞、`make run` 会歧义，而且完全看不出
+这个片段在干什么。临时试验跑通后要留下的，就改名：
+`git mv snippets/scratch-x.cpp snippets/cpp23-x.cpp`。
 
 ## 目录结构
 
