@@ -1,0 +1,4 @@
+# build products
+bin/
+# run status, compiler logs, run logs
+.cache/

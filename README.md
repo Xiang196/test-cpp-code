@@ -1,0 +1,182 @@
+# test-cpp-code
+
+A scratchpad for small C++ probes: **one `.cpp` file = one runnable program.**
+`make run` compiles and runs it, `make watch` reruns on every save, and
+`make test` runs the whole folder and reports pass/fail.
+
+[Chinese version](README.zh-CN.md)
+
+> Verified on this machine's WSL: Ubuntu, g++ 15.2.0, GNU Make 4.4.1.
+> Everything below runs in a WSL terminal.
+> All source files, scripts, and command output are plain ASCII English.
+
+The source code in this repository was written by **DSH (DeepSeek Harness)**.
+See [License and attribution](#license-and-attribution).
+
+## 30-second start
+
+```bash
+cd ~/src/github/test-cpp-code
+
+make                                     # list current snippets
+make new NAME=string-view DESC="string_view vs string"
+make watch S=string-view                 # edit, save, output rebuilds and reruns
+```
+
+`Ctrl+C` quits watch. The alias at the bottom of this file saves the `cd`.
+
+## The three everyday workflows
+
+| What you want | Command |
+| --- | --- |
+| Verify a new syntax or library feature while editing | `make new NAME=xxx`, then `make watch S=xxx` |
+| Tweak an existing snippet | `make run S=xxx` |
+| Check that everything still compiles and passes | `make test` |
+
+`make run` without `S=` runs the most recently modified snippet, so right after
+an edit you can just type `make run`.
+
+## Commands
+
+```text
+make                    list all snippets (default target)
+make run S=NAME         compile and run one snippet
+make run                compile and run the most recently modified snippet
+make watch              watch snippets/, rebuild and rerun on save
+make watch S=NAME       watch only that snippet
+make test               compile + run all, print a pass/fail summary
+make check              compile only (fast syntax check)
+make new NAME=NAME      create a snippet (DESC="one line" optional)
+make edit S=NAME        open with $EDITOR (default: code)
+make clean              remove bin/ and .cache/
+make help               full help
+```
+
+Names do not have to be exact: `make run S=string` resolves to
+`cpp20-string-view` as long as the match is unique; ambiguous matches are
+listed so you can pick a full name. `S=` also accepts a file name or a path
+(`S=cpp20-string-view.cpp`, `S=snippets/cpp20-string-view.cpp`), so tab
+completion and pasted paths work.
+
+## Snippet header convention
+
+These three comments are optional, but `@desc` is worth writing (`make list`
+shows it):
+
+```cpp
+// @desc: one-line description of what this probe verifies
+// @std:  c++23        <- overrides the default standard
+// @flags: -pthread    <- extra compiler flags (threads, special libs, ...)
+
+#include <tc.hpp>
+
+int main() {
+    tc::section("string_view");
+    TC_CHECK(std::string("hello").starts_with("he"));
+    TC_CHECK_EQ(std::string("abc").size(), 3u);
+    return tc::summary();   // returns 1 on failure, so make test marks it red
+}
+```
+
+- **Want pass/fail**: use `TC_CHECK` / `TC_CHECK_EQ` from `include/tc.hpp` and
+  `return tc::summary()`. `make test` then knows which snippet broke.
+- **Just want output**: plain `std::cout` is fine; exit code 0 counts as a pass.
+
+Standard precedence: **command-line `STD=` > `// @std:` header > default `c++20`**.
+
+## Layout
+
+```text
+test-cpp-code/
+|-- Makefile          # entry points and variables
+|-- snippets/         # your snippets: one .cpp = one program (the only place you edit daily)
+|-- include/tc.hpp    # optional tiny assertion header, zero dependencies
+|-- tools/tc.sh       # the actual engine: list/run/watch/test/check/new
+|-- bin/              # build products (auto-generated, gitignored)
+`-- .cache/           # compiler/run logs and last results (auto-generated, gitignored)
+```
+
+- **Zero configuration for new snippets**: drop a `.cpp` into `snippets/` and
+  `make run` / `make list` immediately work. Probing a language feature should
+  not start with five minutes of project setup.
+- **Products and logs stay out of the way**: everything generated lives in
+  `bin/` and `.cache/`, and `make clean` wipes both.
+- **The folder is self-contained**: all paths are relative, so you can copy the
+  whole thing somewhere else (for example into the WSL home directory for
+  faster builds, see FAQ).
+
+## Variables
+
+```bash
+make run S=foo STD=c++23        # change standard
+make run S=foo OPT=-O2          # change optimization
+make run S=foo SAN=1            # ASan + UBSan
+make run S=foo ARGS="a b"       # pass command-line arguments
+make run S=foo CXX=clang++      # other compiler
+CXXFLAGS="-I/usr/include/x" make check   # extra flags
+```
+
+## Why it is shaped like this
+
+1. **One `main` per snippet**: a compile error, a crash, or an infinite loop
+   only affects that one file. The exit code is the natural "did this behave as
+   expected" signal, which is what `make test` aggregates.
+2. **No project files to maintain**: there is no CMakeLists or .vcxproj to keep
+   in sync when you add a probe.
+3. **The Makefile is only the surface**: the real logic lives in
+   `tools/tc.sh`, because a watch loop and header parsing are painful to write
+   and read inside make. Adding a feature means editing one file.
+4. **Regression is one command**: `make test` makes "every probe still
+   compiles and still passes" testable instead of a memory exercise.
+
+## When to move on
+
+- **Multiple translation units, multiple targets, third-party libraries** (for
+  example GoogleTest) -> create a separate CMake project. Keep this folder for
+  single-file probes; the two do not conflict.
+- **Reading stdin for algorithm practice** -> have the snippet use `std::cin`;
+  `make run S=xxx` then lets you type input, or use `echo 1 2 | ./bin/xxx`.
+
+## FAQ
+
+**Why does it live in `~/src/github` instead of on `/mnt/c`?**
+It started under `/mnt/c` (the Windows drive), where compiling a single snippet
+took about 1.2 s. It now lives on WSL's native filesystem, which builds the same
+snippet several times faster and is a normal git repository that can be cloned
+anywhere.
+
+**Where do I put extra compiler flags or include paths?**
+Use `CXXFLAGS=` (appended) or the `@flags:` header. Shared headers go into
+`include/` (already on the include path via `-I`).
+
+**No make in WSL?**
+`sudo apt install build-essential`.
+
+**`make edit` does not open anything?**
+It runs `$EDITOR`, falling back to `code`. Without VS Code, run
+`export EDITOR=vim` (or nano), then `make edit S=NAME`.
+
+**Can I group snippets into subfolders?**
+Only the top level of `snippets/` is scanned. Use filename prefixes instead
+(`cpp23-`, `stl-`, `tpl-`); `make list` sorts by name, so they group naturally.
+
+## Optional: a shell alias
+
+Add this to `~/.bashrc` and run `tc` from anywhere:
+
+```bash
+alias tc='make --no-print-directory -C ~/src/github/test-cpp-code'
+```
+
+```bash
+tc                      # list snippets (make's default target)
+tc run S=string-view
+tc watch
+```
+
+## License and attribution
+
+MIT - see [LICENSE](LICENSE).
+
+The source code in this repository was written by DSH (DeepSeek Harness).
+Maintained by [Xiang196](https://github.com/Xiang196).

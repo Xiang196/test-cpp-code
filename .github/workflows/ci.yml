@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: compile and run every snippet
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Show toolchain versions
+        run: |
+          g++ --version | head -n 1
+          make --version | head -n 1
+
+      - name: List snippets
+        run: make list
+
+      - name: Run every snippet (default flags)
+        run: make test
+
+      - name: Run every snippet with ASan + UBSan
+        run: make test SAN=1
+
+  ascii:
+    name: sources are pure ASCII
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check tracked files (README.zh-CN.md is the only exception)
+        shell: bash
+        run: |
+          set -uo pipefail
+          bad=0
+          while IFS= read -r f; do
+            case "$f" in
+              README.zh-CN.md) continue ;;
+            esac
+            if LC_ALL=C grep -qP '[^\x00-\x7F]' "$f"; then
+              echo "NON-ASCII found in: $f"
+              bad=1
+            fi
+          done < <(git ls-files)
+          if [ "$bad" -eq 0 ]; then
+            echo "OK: all tracked files are pure ASCII"
+          fi
+          exit "$bad"
