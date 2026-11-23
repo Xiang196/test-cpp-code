@@ -5,3 +5,5 @@ bin/
 # per-snippet working dirs: generated output only; fixtures elsewhere in
 # data/NAME/ are tracked
 data/*/out/
+# local clone of the separate GitHub wiki repository (publish target only)
+test-cpp-code.wiki/

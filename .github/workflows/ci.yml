@@ -34,14 +34,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Check tracked files (README.zh-CN.md and wiki/*.zh-CN.md are exceptions)
+      - name: Check tracked files (bilingual wiki pages are exceptions)
         shell: bash
         run: |
           set -uo pipefail
           bad=0
           while IFS= read -r f; do
             case "$f" in
-              README.zh-CN.md|wiki/*.zh-CN.md) continue ;;
+              README.zh-CN.md|wiki/Home.md|wiki/*.zh-CN.md) continue ;;
             esac
             if LC_ALL=C grep -qP '[^\x00-\x7F]' "$f"; then
               echo "NON-ASCII found in: $f"
