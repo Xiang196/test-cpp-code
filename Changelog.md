@@ -33,6 +33,7 @@ release is tagged, that section is renamed to the version and a new
   wiki clone: copy, commit, push, with `--dry-run`, `--no-push`, `--delete`,
   and configurable `WIKI_DIR` / `WIKI_URL`.
 - record snippet creation dates and publish the wiki
+- add one more snippet
 
 ### Changed
 
