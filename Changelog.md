@@ -21,6 +21,7 @@ release is tagged, that section is renamed to the version and a new
 - Demo snippet `cpp17-fileIO-copy-text.cpp` and its committed fixture
   `data/cpp17-fileIO-copy-text/input.txt`.
 - `Changelog.md` and the rule that every commit updates it.
+- Add bilingual wiki guides for make and the commit script
 
 ### Changed
 
