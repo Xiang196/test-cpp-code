@@ -8,6 +8,10 @@
 #
 # Full usage: make help
 #
+# File-I/O snippets run with CWD = data/NAME/ (created on demand). Input
+# fixtures are committed there; generated files go under data/NAME/out/,
+# which is gitignored and wiped by make clean.
+#
 # Defaults: -std=c++17 -O0
 #           -Wall -Werror -Wextra -Wconversion -Wno-unused-result -Wvla -Wpedantic
 #
@@ -41,7 +45,7 @@ export CXX STD OPT WARN CXXFLAGS SAN ARGS TC_FORCE_STD
 TC := ./tools/tc.sh
 BASH ?= bash
 
-.PHONY: list ls run watch test check new clean edit commit help
+.PHONY: list ls run watch test check new data clean edit commit help
 
 list:                 # list all snippets (default target)
 	@$(BASH) $(TC) list
@@ -63,10 +67,13 @@ check:                # compile only; make check S=xxx for one snippet
 new:                  # create a snippet: make new NAME=xxx DESC="one line"
 	@$(BASH) $(TC) new "$(NAME)" "$(DESC)"
 
+data:                 # create data/NAME/ for a file-I/O snippet
+	@$(BASH) $(TC) data $(S)
+
 edit:                 # open a snippet with $EDITOR: make edit S=xxx
 	@$(BASH) $(TC) edit $(S)
 
-clean:                # remove bin/ and .cache/
+clean:                # remove bin/, .cache/ and generated data/*/out/
 	@$(BASH) $(TC) clean
 
 commit:               # test, commit and push: make commit M="message"

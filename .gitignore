@@ -2,3 +2,6 @@
 bin/
 # run status, compiler logs, run logs
 .cache/
+# per-snippet working dirs: generated output only; fixtures elsewhere in
+# data/NAME/ are tracked
+data/*/out/

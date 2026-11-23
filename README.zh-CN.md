@@ -49,8 +49,9 @@ make watch S=NAME       只盯一个片段
 make test               全量编译+运行，输出通过/失败汇总
 make check              只编译不运行（快速查语法）
 make new NAME=NAME      新建片段（DESC="一句话" 可选）
+make data S=NAME        新建 data/NAME/（文件读写片段的工作目录）
 make edit S=NAME        用 $EDITOR（默认 code）打开片段
-make clean              删掉 bin/ 和 .cache/
+make clean              删掉 bin/、.cache/ 和生成的 data/*/out/
 make commit M="msg"     跑测试、提交并推送（tools/commit.sh）
 make help               完整帮助
 ```
@@ -131,21 +132,69 @@ int main() {
 这个片段在干什么。临时试验跑通后要留下的，就改名：
 `git mv snippets/scratch-x.cpp snippets/cpp23-x.cpp`。
 
+## 需要读写文件的片段
+
+会打开文件的片段，运行时的当前目录固定为 `data/<片段名>/`，不是仓库根目录：
+
+```text
+data/
+`-- cpp17-fileIO-copy-text/
+    |-- input.txt      # 输入 fixture：提交到 git，小、纯文本
+    `-- out/           # 程序生成：gitignore，make clean 清掉
+```
+
+规则：
+
+- **一个片段一个目录，名字和 `.cpp` 完全相同。** `make data S=NAME` 会建好
+  `data/NAME/out/`；`make run` / `make test` 也会自动创建，只读的片段就是空目录。
+- **输入文件放在目录顶层，并提交到 git。** 保持小且确定：CI 在干净 clone 上跑
+  `make test`，输入缺失必须让片段失败，而不是悄悄跳过。
+- **输出只写进 `out/`。** 目录会自动建好且被 git 忽略，所以片段写多少文件
+  `git status` 都是干净的。
+- **用相对路径。** 当前目录已经是数据目录，`std::ifstream("input.txt")`、
+  `std::ofstream("out/copy.txt")` 就够了，不用 `../..` 也不用绝对路径。
+- **不要写到 `out/` 之外。** `make clean` 删 `bin/`、`.cache/` 和
+  `data/*/out/`，fixture 永远不动。
+- **`make test` 给每个片段的 stdin 是空的。** 读输入的片段必须处理 EOF
+  （`if (std::cin.eof()) break;`），否则 `make test` 永远结束不了；要手动输入
+  就用 `make run`。
+- **改名或删除片段时，数据目录一起改。**
+  `git mv snippets/old.cpp snippets/new.cpp` 加 `git mv data/old data/new`；
+  不要这个片段了，就同时 `git rm -r data/old`。
+- **找不到文件时先看 workdir。** `make run` 会打印本次用的工作目录，这是排查
+  路径问题的第一行。
+
+`make list` 末尾会多一行 `data fixtures:`，标出哪些片段带 fixture。
+
+要判断生成的文件对不对，读完再 `TC_CHECK`；fixture 保持确定，`make test` 才有
+意义：
+
+```cpp
+std::ifstream back("out/copy.txt");
+std::string line;
+TC_CHECK(static_cast<bool>(std::getline(back, line)));
+```
+
+大二进制文件（图片、压缩包）不要进 git：CI 留一个小文本 fixture，或者把这个
+片段搬去单独的 CMake 工程。
+
 ## 目录结构
 
 ```text
 test-cpp-code/
 |-- Makefile          # 入口和变量
 |-- snippets/         # 你的片段：一个 .cpp 一个程序（日常唯一的编辑区）
+|-- data/             # 每个片段的工作目录：fixture 提交，out/ 忽略
 |-- include/tc.hpp    # 可选的小断言头，零依赖
-|-- tools/tc.sh       # 真正干活的引擎：list/run/watch/test/check/new
+|-- tools/tc.sh       # 真正干活的引擎：list/run/watch/test/check/new/data
 |-- bin/              # 编译产物（自动生成，已 gitignore）
 `-- .cache/           # 编译/运行日志、上次结果（自动生成，已 gitignore）
 ```
 
 - **新增片段零配置**：往 `snippets/` 丢个 `.cpp`，`make run` / `make list`
   立刻可用。验证一个语言特性不该先花五分钟建工程。
-- **产物和日志不碍事**：生成的都进 `bin/` 和 `.cache/`，`make clean` 一次清掉。
+- **产物和日志不碍事**：生成的都进 `bin/`、`.cache/` 和 `data/*/out/`，
+  `make clean` 一次清掉。
 - **整个文件夹自包含**：路径都是相对的，可以把整个目录拷到别处（比如放 WSL
   家目录让编译更快，见 FAQ）。
 
@@ -169,6 +218,8 @@ CXXFLAGS="-I/usr/include/x" make check   # 追加编译参数
    写在 make 里又丑又难改。加功能只改一个文件。
 4. **回归一条命令**：`make test` 把“所有片段还能编、还能跑对”变成可执行的事，
    而不是靠记忆。
+5. **文件读写按片段隔离**：每个片段都在 `data/<名字>/` 里运行，写文件不会弄脏
+   仓库根目录，也不会踩到别的片段的 fixture，`make test` 可以反复跑。
 
 ## 什么时候该换工具
 

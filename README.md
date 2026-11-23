@@ -49,8 +49,9 @@ make watch S=NAME       watch only that snippet
 make test               compile + run all, print a pass/fail summary
 make check              compile only (fast syntax check)
 make new NAME=NAME      create a snippet (DESC="one line" optional)
+make data S=NAME        create data/NAME/ for a file-I/O snippet
 make edit S=NAME        open with $EDITOR (default: code)
-make clean              remove bin/ and .cache/
+make clean              remove bin/, .cache/ and generated data/*/out/
 make commit M="msg"     test, commit and push (tools/commit.sh)
 make help               full help
 ```
@@ -138,14 +139,66 @@ and say nothing about what the snippet does. When a scratch probe becomes
 something worth keeping, rename it:
 `git mv snippets/scratch-x.cpp snippets/cpp23-x.cpp`.
 
+## Snippets that read or write files
+
+A snippet that opens files runs with its working directory set to
+`data/<snippet-name>/`, never the repository root:
+
+```text
+data/
+`-- cpp17-fileIO-copy-text/
+    |-- input.txt      # fixture: committed, small, plain ASCII
+    `-- out/           # generated: gitignored, wiped by make clean
+```
+
+Rules:
+
+- **One directory per snippet, named exactly like the `.cpp`.** `make data
+  S=NAME` creates `data/NAME/out/`; `make run` and `make test` create it on
+  demand too, so a read-only probe simply starts empty.
+- **Fixtures live at the top of the directory and are committed.** Keep them
+  small and deterministic: CI runs `make test` on a fresh checkout, and a
+  missing input file must fail the snippet instead of hiding the problem.
+- **Outputs go under `out/`.** It is created for you and ignored by git, so
+  `git status` stays clean no matter what the probe writes.
+- **Use relative paths.** The CWD is already the data directory, so
+  `std::ifstream("input.txt")` and `std::ofstream("out/copy.txt")` are all
+  you need - no `../..` path juggling and no absolute paths.
+- **Never write outside `out/`.** `make clean` deletes `bin/`, `.cache/` and
+  every `data/*/out/`; fixtures are never touched.
+- **`make test` gives every snippet an empty stdin.** A snippet that reads
+  input must handle EOF (`if (std::cin.eof()) break;`), or `make test` can
+  never finish. Use `make run` when you want to type input interactively.
+- **Renaming or deleting a snippet means its data directory too.**
+  `git mv snippets/old.cpp snippets/new.cpp` plus `git mv data/old data/new`;
+  when a probe is no longer worth keeping, `git rm -r data/old` as well.
+- **Check the workdir line.** `make run` prints the directory it used, which
+  is the first thing to look at when a file seems missing.
+
+`make list` also prints a `data fixtures:` line naming the snippets that have
+fixtures, so the folder stays discoverable.
+
+Assert on a generated file by reading it back with `TC_CHECK`; keep the
+fixture deterministic so `make test` still means something:
+
+```cpp
+std::ifstream back("out/copy.txt");
+std::string line;
+TC_CHECK(static_cast<bool>(std::getline(back, line)));
+```
+
+Large binary fixtures (images, archives) do not belong in git. Keep a tiny
+ASCII fixture for CI, or move that probe to a real CMake project.
+
 ## Layout
 
 ```text
 test-cpp-code/
 |-- Makefile          # entry points and variables
 |-- snippets/         # your snippets: one .cpp = one program (the only place you edit daily)
+|-- data/             # per-snippet working dirs: fixtures committed, out/ ignored
 |-- include/tc.hpp    # optional tiny assertion header, zero dependencies
-|-- tools/tc.sh       # the actual engine: list/run/watch/test/check/new
+|-- tools/tc.sh       # the actual engine: list/run/watch/test/check/new/data
 |-- bin/              # build products (auto-generated, gitignored)
 `-- .cache/           # compiler/run logs and last results (auto-generated, gitignored)
 ```
@@ -154,7 +207,7 @@ test-cpp-code/
   `make run` / `make list` immediately work. Probing a language feature should
   not start with five minutes of project setup.
 - **Products and logs stay out of the way**: everything generated lives in
-  `bin/` and `.cache/`, and `make clean` wipes both.
+  `bin/`, `.cache/` and `data/*/out/`, and `make clean` wipes all three.
 - **The folder is self-contained**: all paths are relative, so you can copy the
   whole thing somewhere else (for example into the WSL home directory for
   faster builds, see FAQ).
@@ -182,6 +235,9 @@ CXXFLAGS="-I/usr/include/x" make check   # extra flags
    and read inside make. Adding a feature means editing one file.
 4. **Regression is one command**: `make test` makes "every probe still
    compiles and still passes" testable instead of a memory exercise.
+5. **File I/O is sandboxed per snippet**: every snippet runs inside
+   `data/<name>/`, so a probe that writes files cannot dirty the repository
+   root or another probe's fixtures. `make test` stays repeatable.
 
 ## When to move on
 

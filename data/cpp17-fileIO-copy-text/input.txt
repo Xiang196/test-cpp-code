@@ -1,0 +1,3 @@
+line 1: hello from input.txt
+line 2: copy me into out/
+line 3: end of file

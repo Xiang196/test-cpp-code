@@ -10,6 +10,12 @@
 #       // @std:   c++23         override the default standard
 #       // @flags: -pthread      extra compiler flags
 #
+#   File-I/O convention: every snippet runs with its working directory set to
+#   data/<snippet-name>/, which is created on demand. Input fixtures live at
+#   the top of that directory and are committed; generated files go to out/,
+#   which is gitignored. So a snippet can just use "input.txt" and
+#   "out/result.txt" instead of juggling paths. See `make help` and README.
+#
 #   You can also call the engine directly, bypassing make:
 #       ./tools/tc.sh run string-view
 # ============================================================================
@@ -20,6 +26,7 @@ cd -- "$ROOT" || { echo "cannot cd into $ROOT" >&2; exit 1; }
 
 SNIPPETS=snippets
 INCLUDE=include
+DATA=data
 BIN=bin
 CACHE=.cache
 
@@ -169,6 +176,36 @@ print_build_fail() {
     sed 's/^/    /' "$CACHE/$name.build.log"
 }
 
+# ---- Per-snippet working directory ---------------------------------------
+# Every snippet runs with CWD = data/<name>/, so a snippet that reads
+# "input.txt" or writes "out/copy.txt" only ever touches its own fixture
+# folder, never the repository root or another snippet's files. The directory
+# and its out/ subdirectory are created on demand; only fixtures (files
+# outside out/) are meant to be committed.
+workdir_of() { printf '%s/%s\n' "$DATA" "$1"; }
+
+prepare_workdir() {
+    local dir
+    dir=$(workdir_of "$1")
+    mkdir -p "$dir/out" || { err "cannot create $dir"; return 1; }
+}
+
+# Runs the compiled snippet inside its data directory. Callers redirect output
+# when they need to (make test writes .cache/<name>.run.log).
+run_in_data() {
+    local name=$1 bin="$ROOT/$BIN/$1"
+    prepare_workdir "$name" || return 1
+    (
+        cd -- "$(workdir_of "$name")" || exit 1
+        if [ -n "$ARGS" ]; then
+            # shellcheck disable=SC2086
+            "$bin" $ARGS
+        else
+            "$bin"
+        fi
+    )
+}
+
 # ---- Run history (used by `make list`) -----------------------------------
 record() {  # name exit-code
     printf '%s %s\n' "$2" "$(now_s)" >"$CACHE/$1.status"
@@ -195,7 +232,6 @@ ago() {
 run_one() {
     local name=$1
     local src="$SNIPPETS/$name.cpp"
-    local out="$BIN/$name"
     local std rc t_build t_run0 t_run1
 
     [ -f "$src" ] || { err "snippet not found: $name"; return 1; }
@@ -211,14 +247,10 @@ run_one() {
     fi
     t_build=$(( $(now_ms) - t_build ))
     printf '%s  compiled in %dms%s\n' "$DIM" "$t_build" "$N"
+    printf '%s  workdir: %s%s\n' "$DIM" "$(workdir_of "$name")" "$N"
 
     t_run0=$(now_ms)
-    if [ -n "$ARGS" ]; then
-        # shellcheck disable=SC2086
-        "$out" $ARGS
-    else
-        "$out"
-    fi
+    run_in_data "$name"
     rc=$?
     t_run1=$(( $(now_ms) - t_run0 ))
 
@@ -233,7 +265,7 @@ run_one() {
 
 # ---- make list -----------------------------------------------------------
 cmd_list() {
-    local names count n icon stdtag desc age status rc ts
+    local names count n icon stdtag desc age status rc ts data_names=''
     names=$(snippet_names)
     if [ -z "$names" ]; then
         printf 'no snippets yet.\n\n'
@@ -269,7 +301,15 @@ cmd_list() {
             printf '  %s  %-40s %s%-9s%s %-6s\n' \
                 "$icon" "$n.cpp" "$DIM" "$stdtag" "$N" "$age"
         fi
+        if [ -d "$DATA/$n" ] && [ -n "$(find "$DATA/$n" -mindepth 1 -maxdepth 2 \
+            -type f -not -path '*/out/*' -print -quit 2>/dev/null)" ]; then
+            data_names+=" $n"
+        fi
     done <<<"$names"
+
+    if [ -n "$data_names" ]; then
+        printf '\n%sdata fixtures:%s%s\n' "$DIM" "$N" "$data_names"
+    fi
 
     printf '\n%smake run S=NAME%s runs one (no S = most recently modified)   %smake watch%s save to rerun\n' \
         "$DIM" "$N" "$DIM" "$N"
@@ -305,12 +345,10 @@ cmd_test() {
             continue
         fi
         t0=$(now_ms)
-        if [ -n "$ARGS" ]; then
-            # shellcheck disable=SC2086
-            "$BIN/$n" $ARGS >"$CACHE/$n.run.log" 2>&1
-        else
-            "$BIN/$n" >"$CACHE/$n.run.log" 2>&1
-        fi
+        # Empty stdin: make test must never sit waiting for typed input on a
+        # terminal. Snippets that read stdin see EOF and should exit cleanly;
+        # use `make run S=...` when you want to type input interactively.
+        run_in_data "$n" </dev/null >"$ROOT/$CACHE/$n.run.log" 2>&1
         rc=$?
         t1=$(( $(now_ms) - t0 ))
         record "$n" "$rc"
@@ -399,9 +437,14 @@ cmd_new() {
 
 # ---- make watch ----------------------------------------------------------
 signature() {
-    find "$SNIPPETS" "$INCLUDE" -maxdepth 1 -type f \
-        \( -name '*.cpp' -o -name '*.hpp' \) -printf '%T@ %s %p\n' 2>/dev/null \
-        | sort | md5sum | cut -d' ' -f1
+    {
+        find "$SNIPPETS" "$INCLUDE" -maxdepth 1 -type f \
+            \( -name '*.cpp' -o -name '*.hpp' \) -printf '%T@ %s %p\n' 2>/dev/null
+        # Fixtures are inputs too, so editing one reruns the snippet. Generated
+        # files under data/*/out/ are deliberately excluded to avoid loops.
+        find "$DATA" -mindepth 1 -maxdepth 2 -type f \
+            -not -path '*/out/*' -printf '%T@ %s %p\n' 2>/dev/null
+    } | sort | md5sum | cut -d' ' -f1
 }
 
 clear_screen() {
@@ -416,7 +459,8 @@ cmd_watch() {
         pinned=$(resolve "$target") || exit 1
     fi
 
-    printf '%s> watch%s  %s%s/  %s/%s\n' "$B" "$N" "$DIM" "$SNIPPETS" "$INCLUDE" "$N"
+    printf '%s> watch%s  %s%s/, %s/, %s/%s\n' \
+        "$B" "$N" "$DIM" "$SNIPPETS" "$INCLUDE" "$DATA" "$N"
     if [ -n "$pinned" ]; then
         printf '  fixed:   %s%s%s\n' "$B" "$pinned" "$N"
     else
@@ -445,10 +489,32 @@ cmd_watch() {
     done
 }
 
-# ---- make clean / edit / help -------------------------------------------
+# ---- make clean / data / edit / help ------------------------------------
 cmd_clean() {
     rm -rf "$BIN" "$CACHE"
-    ok "removed bin/ and .cache/"
+    if [ -d "$DATA" ]; then
+        # Generated files only: fixtures (everything outside out/) survive.
+        find "$DATA" -mindepth 2 -maxdepth 2 -type d -name out -prune -exec rm -rf -- {} +
+        find "$DATA" -mindepth 1 -maxdepth 1 -type d -empty -delete
+    fi
+    ok "removed bin/, .cache/ and generated data/*/out/"
+}
+
+# ---- make data -----------------------------------------------------------
+# Creates the per-snippet working directory used by file-I/O snippets. The
+# snippet needs no header and no path changes: it runs with CWD here.
+cmd_data() {
+    local name=${1:-} dir
+    if [ -z "$name" ]; then
+        die 'usage: make data S=NAME'
+    fi
+    name=$(resolve "$name") || exit 1
+    prepare_workdir "$name" || exit 1
+    dir=$(workdir_of "$name")
+    ok "data dir: $dir"
+    printf '  fixtures:  %s/        (commit these)\n' "$dir"
+    printf '  generated: %s/out/    (gitignored; make clean wipes it)\n' "$dir"
+    printf '  runtime cwd: %s/\n' "$dir"
 }
 
 cmd_edit() {
@@ -477,8 +543,9 @@ test-cpp-code - write small C++ snippets, compile and run them with one command.
   make check              compile only (fast syntax check), no execution
   make check S=NAME       compile only one snippet
   make new NAME=NAME      create a snippet (optional: DESC="one line")
+  make data S=NAME        create data/NAME/ for a file-I/O snippet
   make edit S=NAME        open a snippet with $EDITOR (default: code)
-  make clean              remove bin/ and .cache/
+  make clean              remove bin/, .cache/ and generated data/*/out/
   make commit M="msg"     run tests, then commit and push
   make help               this help
 
@@ -498,6 +565,18 @@ Optional metadata in a snippet header:
   // @desc: one-line description
   // @std:  c++23
   // @flags: -pthread
+
+File I/O snippets:
+  Each snippet runs with CWD = data/NAME/, created on demand. Put input
+  fixtures at the top of that directory and commit them; write generated
+  files under out/ only (gitignored). Relative paths just work:
+      std::ifstream in("input.txt");
+      std::ofstream out("out/result.txt");
+  make data S=NAME creates the directory. make clean clears out/ but never
+  touches fixtures. Never write to the repository root.
+
+make test feeds every snippet an empty stdin, so a snippet that reads input
+must treat EOF as the end and exit; `make run` is for typing input by hand.
 
 Typical workflow:
   make new NAME=string-view DESC="string_view vs string"
@@ -519,6 +598,7 @@ case "$cmd" in
     test)             cmd_test ;;
     check|build)      cmd_check "${1:-}" ;;
     new)              cmd_new "${1:-}" "${2:-}" ;;
+    data)             cmd_data "${1:-}" ;;
     clean)            cmd_clean ;;
     edit|open)        cmd_edit "${1:-}" ;;
     help|-h|--help)   cmd_help ;;
