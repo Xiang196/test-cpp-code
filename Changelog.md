@@ -23,6 +23,7 @@ release is tagged, that section is renamed to the version and a new
 - `Changelog.md` and the rule that every commit updates it.
 - Add bilingual wiki guides for make and the commit script
 - Add a bilingual wiki Home page and ignore the local wiki clone
+- add 3 snippets
 
 ### Changed
 
