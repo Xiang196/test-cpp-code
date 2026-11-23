@@ -5,6 +5,7 @@
 #   make run S=NAME         compile and run (no S = most recently modified)
 #   make watch              rebuild and rerun on every save
 #   make test               compile + run everything, print a summary
+#   make wiki               publish wiki/ to the GitHub wiki repository
 #
 # Full usage: make help
 #
@@ -45,7 +46,7 @@ export CXX STD OPT WARN CXXFLAGS SAN ARGS TC_FORCE_STD
 TC := ./tools/tc.sh
 BASH ?= bash
 
-.PHONY: list ls run watch test check new data clean edit commit help
+.PHONY: list ls run watch test check dates new data clean edit commit wiki help
 
 list:                 # list all snippets (default target)
 	@$(BASH) $(TC) list
@@ -64,6 +65,9 @@ test:                 # compile + run everything, print pass/fail summary
 check:                # compile only; make check S=xxx for one snippet
 	@$(BASH) $(TC) check $(S)
 
+dates:                # list snippets by creation date; validate @created
+	@$(BASH) $(TC) dates
+
 new:                  # create a snippet: make new NAME=xxx DESC="one line"
 	@$(BASH) $(TC) new "$(NAME)" "$(DESC)"
 
@@ -78,6 +82,9 @@ clean:                # remove bin/, .cache/ and generated data/*/out/
 
 commit:               # interactive commit + changelog: make commit [M="message"]
 	@$(BASH) ./tools/commit.sh "$(M)"
+
+wiki:                 # publish wiki/ to the wiki clone (M="message" optional)
+	@$(BASH) ./tools/wiki.sh "$(M)"
 
 help:                 # show full help
 	@$(BASH) $(TC) help

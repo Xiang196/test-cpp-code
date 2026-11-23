@@ -48,12 +48,14 @@ make watch              watch snippets/, rebuild and rerun on save
 make watch S=NAME       watch only that snippet
 make test               compile + run all, print a pass/fail summary
 make check              compile only (fast syntax check)
+make dates              list snippets by creation date (validates @created)
 make new NAME=NAME      create a snippet (DESC="one line" optional)
 make data S=NAME        create data/NAME/ for a file-I/O snippet
 make edit S=NAME        open with $EDITOR (default: code)
 make clean              remove bin/, .cache/ and generated data/*/out/
 make commit             interactive: message + Changelog, test, commit, push
 make commit M="msg"     same, with the message already filled in
+make wiki               publish wiki/ to the GitHub wiki repo (commit + push)
 make help               full help
 ```
 
@@ -91,15 +93,35 @@ confirmations; this also pushes unless `--no-push` is given).
 
 `make commit M="..."` is a shortcut for `./tools/commit.sh -m "..."`.
 
+### Publishing the wiki
+
+The Markdown under `wiki/` is the source of truth for the
+[GitHub wiki](https://github.com/Xiang196/test-cpp-code/wiki). `make wiki`
+copies it into the separate wiki clone (default: `../test-cpp-code.wiki`),
+commits, and pushes:
+
+```bash
+make wiki
+make wiki M="docs: refresh the make guide"
+make wiki WIKI_DIR=~/src/github/test-cpp-code.wiki
+```
+
+Use `./tools/wiki.sh --dry-run` to see the diff without writing anything,
+`--no-push` to commit locally only, and `--delete` to also remove wiki pages
+that no longer exist under `wiki/`. The clone must be clean; the script
+fast-forwards it before copying. `WIKI_URL` overrides the remote used when the
+clone does not exist.
+
 ## Snippet header convention
 
-These three comments are optional, but `@desc` is worth writing (`make list`
-shows it):
+These four comments are optional for the build, but `@desc` is worth writing
+(`make list` shows it) and `make new` stamps `@created` for you:
 
 ```cpp
-// @desc: one-line description of what this probe verifies
-// @std:  c++23        <- overrides the default standard
-// @flags: -pthread    <- extra compiler flags (threads, special libs, ...)
+// @desc:    one-line description of what this probe verifies
+// @created: 2026-11-23   <- creation date, ISO YYYY-MM-DD
+// @std:     c++23        <- overrides the default standard
+// @flags:   -pthread     <- extra compiler flags (threads, special libs, ...)
 
 #include <tc.hpp>
 
@@ -114,6 +136,10 @@ int main() {
 - **Want pass/fail**: use `TC_CHECK` / `TC_CHECK_EQ` from `include/tc.hpp` and
   `return tc::summary()`. `make test` then knows which snippet broke.
 - **Just want output**: plain `std::cout` is fine; exit code 0 counts as a pass.
+- **`@created` is the creation date, not the last edit.** It uses ISO
+  `YYYY-MM-DD`; keep it when renaming a snippet, and give a copy today's date.
+  `make dates` lists snippets oldest-first and rejects missing, malformed, or
+  impossible dates (`2026-2-3`, `2026-02-30`).
 
 Standard precedence: **command-line `STD=` > `// @std:` header > default `c++17`**.
 
@@ -217,8 +243,9 @@ test-cpp-code/
 |-- snippets/         # your snippets: one .cpp = one program (the only place you edit daily)
 |-- data/             # per-snippet working dirs: fixtures committed, out/ ignored
 |-- include/tc.hpp    # optional tiny assertion header, zero dependencies
-|-- tools/tc.sh       # the actual engine: list/run/watch/test/check/new/data
+|-- tools/tc.sh       # the actual engine: list/run/watch/test/check/dates/new/data
 |-- tools/commit.sh   # interactive message + Changelog + test + commit + push
+|-- tools/wiki.sh     # publish wiki/ to the separate GitHub wiki clone
 |-- bin/              # build products (auto-generated, gitignored)
 `-- .cache/           # compiler/run logs and last results (auto-generated, gitignored)
 ```

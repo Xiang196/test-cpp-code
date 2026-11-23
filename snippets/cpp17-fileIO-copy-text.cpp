@@ -1,4 +1,5 @@
 // @desc: copy a text file line by line (fixture lives in data/)
+// @created: 2026-11-23
 
 #include <fstream>
 #include <iostream>

@@ -18,4 +18,4 @@ Practical guides for the C++ snippet workbench.
 ## About this wiki
 
 The pages are practical, task-oriented guides. The source Markdown lives in
-the code repository under `wiki/`; the wiki repository is the published copy.
+the code repository under `wiki/`; run `make wiki` to copy and push it here.

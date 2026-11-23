@@ -6,9 +6,10 @@
 #   Add new commands in this file only.
 #
 #   Snippets may start with optional metadata comments:
-#       // @desc:  one-line description shown by `make list`
-#       // @std:   c++23         override the default standard
-#       // @flags: -pthread      extra compiler flags
+#       // @desc:    one-line description shown by `make list`
+#       // @created: 2026-11-23  creation date shown by `make dates`
+#       // @std:     c++23        override the default standard
+#       // @flags:   -pthread     extra compiler flags
 #
 #   File-I/O convention: every snippet runs with its working directory set to
 #   data/<snippet-name>/, which is created on demand. Input fixtures live at
@@ -51,6 +52,7 @@ err()  { printf '%sERROR:%s %s\n' "$R" "$N" "$*" >&2; }
 die()  { err "$@"; exit 1; }
 ok()   { printf '%s[ok]%s %s\n' "$G" "$N" "$*"; }
 bad()  { printf '%s[!!]%s %s\n' "$R" "$N" "$*"; }
+warn() { printf '%s[!]%s %s\n' "$B" "$N" "$*" >&2; }
 
 now_s()  { date +%s; }
 now_ms() { date +%s%3N; }
@@ -315,6 +317,51 @@ cmd_list() {
         "$DIM" "$N" "$DIM" "$N"
 }
 
+# ---- make dates ----------------------------------------------------------
+# Lists snippets in creation order and validates // @created:.
+# A missing or malformed date fails so every snippet stays dated; a date in
+# the future only warns because the local date can be ahead of CI's UTC date.
+cmd_dates() {
+    local names n d desc today rows=() missing=() rc=0 count
+    today=$(date +%F)
+    names=$(snippet_names)
+    [ -n "$names" ] || die "no snippets yet"
+
+    while IFS= read -r n; do
+        d=$(meta "$SNIPPETS/$n.cpp" created)
+        desc=$(meta "$SNIPPETS/$n.cpp" desc)
+        if [ -z "$d" ]; then
+            missing+=("$n.cpp")
+            continue
+        fi
+        # YYYY-MM-DD only, and a real calendar date (rejects 2026-02-30).
+        if ! [[ $d =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}$ ]] ||
+           [ "$(date -d "$d" +%F 2>/dev/null)" != "$d" ]; then
+            bad "invalid @created in $n.cpp: '$d' (want YYYY-MM-DD)"
+            rc=1
+            continue
+        fi
+        if [[ $d > $today ]]; then
+            warn "@created is in the future: $n.cpp ($d)"
+        fi
+        rows+=("$(printf '%s  %-42s %s' "$d" "$n.cpp" "$desc")")
+    done <<<"$names"
+
+    if [ ${#rows[@]} -gt 0 ]; then
+        printf '%s\n' "${rows[@]}" | sort
+    fi
+
+    if [ ${#missing[@]} -gt 0 ]; then
+        bad "${#missing[@]} snippet(s) without @created: ${missing[*]}"
+        rc=1
+    fi
+
+    count=$(printf '%s\n' "$names" | wc -l)
+    printf '\n%s%d snippets, %d dated%s\n' \
+        "$DIM" "$count" "${#rows[@]}" "$N"
+    return "$rc"
+}
+
 # ---- make run ------------------------------------------------------------
 cmd_run() {
     local target=${1:-}
@@ -417,6 +464,7 @@ cmd_new() {
 
     {
         printf '// @desc: %s\n' "$desc"
+        printf '// @created: %s\n' "$(date +%F)"
         printf '// @std: %s\n' "$STD"
         printf '//\n'
         printf '// Write what you want to verify here. Use TC_CHECK from include/tc.hpp\n'
@@ -542,11 +590,13 @@ test-cpp-code - write small C++ snippets, compile and run them with one command.
   make test               compile + run all snippets, print a pass/fail summary
   make check              compile only (fast syntax check), no execution
   make check S=NAME       compile only one snippet
+  make dates              list snippets by creation date, validate @created
   make new NAME=NAME      create a snippet (optional: DESC="one line")
   make data S=NAME        create data/NAME/ for a file-I/O snippet
   make edit S=NAME        open a snippet with $EDITOR (default: code)
   make clean              remove bin/, .cache/ and generated data/*/out/
   make commit M="msg"     interactive test + Changelog + commit + push
+  make wiki               copy wiki/ to the wiki clone, commit and push
   make help               this help
 
 S=NAME accepts a snippet name (hello), a file name (hello.cpp) or a path
@@ -562,9 +612,10 @@ Variables, overridable on the command line:
   CXX=clang++      use another compiler
 
 Optional metadata in a snippet header:
-  // @desc: one-line description
-  // @std:  c++23
-  // @flags: -pthread
+  // @desc:    one-line description
+  // @created: 2026-11-23   creation date (YYYY-MM-DD)
+  // @std:     c++23
+  // @flags:   -pthread
 
 File I/O snippets:
   Each snippet runs with CWD = data/NAME/, created on demand. Put input
@@ -593,6 +644,7 @@ cmd=${1:-help}
 shift || true
 case "$cmd" in
     list|ls)          cmd_list ;;
+    dates)            cmd_dates ;;
     run)              cmd_run "${1:-}" ;;
     watch|w)          cmd_watch "${1:-}" ;;
     test)             cmd_test ;;

@@ -1,4 +1,5 @@
 // @desc: string_view vs string, substring without copying
+// @created: 2026-11-20
 // @std: c++20
 #include <iostream>
 #include <string>

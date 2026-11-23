@@ -66,11 +66,13 @@ make watch S=hello                                     # 保存就重跑
 | `make test` | 全量编译并运行，输出通过/失败汇总。 |
 | `make check` | 全量只编译，不运行。 |
 | `make check S=NAME` | 只编译一个片段。 |
+| `make dates` | 按创建日期列出片段，并校验 `@created`。 |
 | `make new NAME=NAME DESC="..."` | 从模板创建 `snippets/NAME.cpp`。 |
 | `make data S=NAME` | 为文件读写片段创建 `data/NAME/`。 |
 | `make edit S=NAME` | 用 `$EDITOR`（默认 `code`）打开片段。 |
 | `make clean` | 删掉 `bin/`、`.cache/` 和生成的 `data/*/out/`。 |
 | `make commit` | 交互式 Changelog + 测试 + 提交 + 推送，详见单独指南。 |
+| `make wiki` | 把 `wiki/` 复制到独立的 wiki 克隆，提交并推送。 |
 | `make help` | 显示完整内置帮助。 |
 
 `S=` 不用写全，接受片段名、文件名、路径或唯一子串：
@@ -148,6 +150,28 @@ make clean
 
 删除 `bin/`、`.cache/` 和生成的 `data/*/out/`，不会动片段、头文件和 fixture。
 
+### 4.6 发布 wiki
+
+`wiki/` 下的 Markdown 是 GitHub wiki 的 source of truth。把它发布到独立的
+wiki 克隆（默认在本仓库外面）：
+
+```bash
+make wiki
+```
+
+脚本会把 `wiki/` 复制进克隆，提交并推送。常用变体：
+
+```bash
+make wiki M="docs: refresh the make guide"
+make wiki WIKI_DIR=~/src/github/test-cpp-code.wiki
+./tools/wiki.sh --dry-run      # 只看差异，不改任何东西
+./tools/wiki.sh --no-push      # 只提交，不推送
+./tools/wiki.sh --delete       # 删除 wiki/ 里已经不存在的页面
+```
+
+克隆必须是干净的，脚本会先 fast-forward 再复制。如果克隆不存在，`WIKI_URL`
+指定要克隆的远端；默认是在 `origin` 地址后面加 `.wiki.git`。
+
 ## 5. 需要读写文件的片段
 
 每个片段运行时的当前目录都是 `data/<片段名>/`。这个目录和 `out/` 子目录会在
@@ -206,12 +230,14 @@ std::ofstream out("out/copy.txt");
 
 ## 7. 片段头部
 
-头部注释都是可选的，但 `@desc` 建议写，`make list` 会显示：
+头部注释对编译都是可选的，但 `@desc` 建议写（`make list` 会显示），
+`@created` 由 `make new` 自动填好：
 
 ```cpp
-// @desc: what this snippet verifies
-// @std:  c++20
-// @flags: -pthread
+// @desc:    what this snippet verifies
+// @created: 2026-11-23   <- 创建日期（YYYY-MM-DD）
+// @std:     c++20
+// @flags:   -pthread
 
 #include <tc.hpp>
 
@@ -224,6 +250,8 @@ int main() {
 ```
 
 - `@desc`：一句话描述。
+- `@created`：创建日期（`YYYY-MM-DD`）。`make dates` 按时间顺序列出，
+  缺失或格式错误会失败。
 - `@std`：只给这个片段提高标准。
 - `@flags`：追加编译参数，例如 `-pthread`。
 

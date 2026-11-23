@@ -1,4 +1,5 @@
 // @desc: self-checking snippet with TC_CHECK (make test can see pass/fail)
+// @created: 2026-11-20
 // @std: c++20
 #include <tc.hpp>
 

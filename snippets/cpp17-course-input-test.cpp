@@ -1,4 +1,5 @@
 // @desc: read numbers from stdin until -1; exits cleanly on EOF so make test cannot hang
+// @created: 2026-11-23
 
 #include <iostream>
 using namespace std;

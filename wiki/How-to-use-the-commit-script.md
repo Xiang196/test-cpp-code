@@ -331,6 +331,7 @@ commit message or the wiki/README instead.
 ## See also
 
 - [How to use make](https://github.com/Xiang196/test-cpp-code/wiki/How-to-use-make)
+  (also covers publishing the wiki with `make wiki`)
 - [Changelog](https://github.com/Xiang196/test-cpp-code/blob/main/Changelog.md)
 - [README (English)](https://github.com/Xiang196/test-cpp-code#readme)
 - [README (Chinese)](https://github.com/Xiang196/test-cpp-code/blob/main/README.zh-CN.md)

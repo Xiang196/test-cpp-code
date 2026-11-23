@@ -25,6 +25,14 @@ release is tagged, that section is renamed to the version and a new
 - Add a bilingual wiki Home page and ignore the local wiki clone
 - add 3 snippets
 - add 1 more snippet
+- `// @created: YYYY-MM-DD` snippet header recording the creation date;
+  `make new` writes it and every existing snippet was backfilled from git.
+- `make dates` lists snippets oldest-first and validates `@created`; CI runs
+  it and fails on a missing or malformed date.
+- `tools/wiki.sh` and `make wiki` publish `wiki/` to the separate GitHub
+  wiki clone: copy, commit, push, with `--dry-run`, `--no-push`, `--delete`,
+  and configurable `WIKI_DIR` / `WIKI_URL`.
+- record snippet creation dates and publish the wiki
 
 ### Changed
 

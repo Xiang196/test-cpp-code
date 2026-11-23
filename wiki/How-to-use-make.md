@@ -67,11 +67,13 @@ Press `Ctrl+C` to stop `make watch`.
 | `make test` | Compile and run every snippet; print a pass/fail summary. |
 | `make check` | Compile every snippet without running it. |
 | `make check S=NAME` | Compile one snippet only. |
+| `make dates` | List snippets by creation date and validate `@created`. |
 | `make new NAME=NAME DESC="..."` | Create `snippets/NAME.cpp` from the template. |
 | `make data S=NAME` | Create `data/NAME/` for a file-I/O snippet. |
 | `make edit S=NAME` | Open the snippet with `$EDITOR` (default: `code`). |
 | `make clean` | Remove `bin/`, `.cache/`, and generated `data/*/out/` files. |
 | `make commit` | Interactive changelog + test + commit + push. See the separate guide. |
+| `make wiki` | Copy `wiki/` to the separate wiki clone, commit, and push. |
 | `make help` | Show the full built-in help. |
 
 `S=` does not have to be exact. It accepts a snippet name, a file name, a path,
@@ -154,6 +156,30 @@ make clean
 This removes `bin/`, `.cache/`, and the generated `data/*/out/` files. It does
 not touch snippets, headers, or committed fixtures.
 
+### 4.6 Publish the wiki
+
+The Markdown under `wiki/` is the source of truth for the GitHub wiki. Publish
+it to the separate wiki clone (outside this repository by default):
+
+```bash
+make wiki
+```
+
+The script copies `wiki/` into the clone, commits, and pushes. Useful
+variants:
+
+```bash
+make wiki M="docs: refresh the make guide"
+make wiki WIKI_DIR=~/src/github/test-cpp-code.wiki
+./tools/wiki.sh --dry-run      # show the diff, change nothing
+./tools/wiki.sh --no-push      # commit locally only
+./tools/wiki.sh --delete       # remove pages deleted from wiki/
+```
+
+The clone must be clean and is fast-forwarded before copying. If it does not
+exist, `WIKI_URL` selects the remote to clone; the default is the `origin` URL
+with `.wiki.git` appended.
+
 ## 5. Snippets that read or write files
 
 Every snippet runs with its working directory set to `data/<snippet-name>/`.
@@ -212,13 +238,14 @@ Standard precedence:
 
 ## 7. Snippet headers
 
-The header comments are optional, but `@desc` is worth writing because
-`make list` shows it:
+The header comments are optional for the build, but `@desc` is worth writing
+because `make list` shows it, and `make new` stamps `@created` for you:
 
 ```cpp
-// @desc: what this snippet verifies
-// @std:  c++20
-// @flags: -pthread
+// @desc:    what this snippet verifies
+// @created: 2026-11-23   <- creation date (YYYY-MM-DD)
+// @std:     c++20
+// @flags:   -pthread
 
 #include <tc.hpp>
 
@@ -231,6 +258,8 @@ int main() {
 ```
 
 - `@desc` is a one-line description.
+- `@created` records the creation date (`YYYY-MM-DD`). `make dates` lists
+  snippets oldest-first and fails on a missing or malformed date.
 - `@std` raises the standard for this snippet only.
 - `@flags` adds compiler flags, for example `-pthread`.
 

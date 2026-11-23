@@ -48,12 +48,14 @@ make watch              盯着 snippets/，保存即重编重跑
 make watch S=NAME       只盯一个片段
 make test               全量编译+运行，输出通过/失败汇总
 make check              只编译不运行（快速查语法）
+make dates              按创建日期列出片段（校验 @created）
 make new NAME=NAME      新建片段（DESC="一句话" 可选）
 make data S=NAME        新建 data/NAME/（文件读写片段的工作目录）
 make edit S=NAME        用 $EDITOR（默认 code）打开片段
 make clean              删掉 bin/、.cache/ 和生成的 data/*/out/
 make commit             交互式：message + Changelog、测试、提交、推送
 make commit M="msg"     同上，只是 message 预先填好
+make wiki               把 wiki/ 发布到 GitHub wiki 仓库（提交 + 推送）
 make help               完整帮助
 ```
 
@@ -89,14 +91,33 @@ push）。
 
 `make commit M="..."` 等价于 `./tools/commit.sh -m "..."`。
 
+### 发布 wiki
+
+`wiki/` 下的 Markdown 是
+[GitHub wiki](https://github.com/Xiang196/test-cpp-code/wiki) 的 source of
+truth。`make wiki` 会把它复制到独立的 wiki 克隆（默认
+`../test-cpp-code.wiki`），提交并推送：
+
+```bash
+make wiki
+make wiki M="docs: refresh the make guide"
+make wiki WIKI_DIR=~/src/github/test-cpp-code.wiki
+```
+
+`./tools/wiki.sh --dry-run` 只显示差异，不改任何东西；`--no-push` 只提交不推送；
+`--delete` 会顺带删除 `wiki/` 里已经不存在的页面。克隆必须是干净的，脚本会先
+fast-forward 再复制。克隆不存在时，`WIKI_URL` 可以覆盖默认远端。
+
 ## 片段文件头约定
 
-这三个注释都可选，但 `@desc` 建议写（`make list` 会显示它）：
+这四个注释对编译都是可选的，但 `@desc` 建议写（`make list` 会显示），
+`@created` 由 `make new` 自动填好：
 
 ```cpp
-// @desc: one-line description of what this probe verifies
-// @std:  c++23        <- 覆盖默认标准
-// @flags: -pthread    <- 额外的编译参数（线程、特殊库等）
+// @desc:    one-line description of what this probe verifies
+// @created: 2026-11-23   <- 创建日期，ISO YYYY-MM-DD
+// @std:     c++23        <- 覆盖默认标准
+// @flags:   -pthread     <- 额外的编译参数（线程、特殊库等）
 
 #include <tc.hpp>
 
@@ -111,6 +132,9 @@ int main() {
 - **要判断对错**：用 `include/tc.hpp` 里的 `TC_CHECK` / `TC_CHECK_EQ`，最后
   `return tc::summary()`。这样 `make test` 能看出哪个片段挂了。
 - **只是看看输出**：不用断言，直接 `std::cout`，退出码 0 就算通过。
+- **`@created` 是创建日期，不是最后修改时间。** 格式为 ISO `YYYY-MM-DD`；
+  重命名时保留，复制成新片段时换成当天日期。`make dates` 会按时间顺序列出，
+  并拒绝缺失、格式错误或不存在的日期（如 `2026-2-3`、`2026-02-30`）。
 
 标准优先级：**命令行 `STD=` > 片段头 `// @std:` > 默认 `c++17`**。
 
@@ -204,8 +228,9 @@ test-cpp-code/
 |-- snippets/         # 你的片段：一个 .cpp 一个程序（日常唯一的编辑区）
 |-- data/             # 每个片段的工作目录：fixture 提交，out/ 忽略
 |-- include/tc.hpp    # 可选的小断言头，零依赖
-|-- tools/tc.sh       # 真正干活的引擎：list/run/watch/test/check/new/data
+|-- tools/tc.sh       # 真正干活的引擎：list/run/watch/test/check/dates/new/data
 |-- tools/commit.sh   # 交互式 message + Changelog + 测试 + 提交 + 推送
+|-- tools/wiki.sh     # 把 wiki/ 发布到独立的 GitHub wiki 克隆
 |-- bin/              # 编译产物（自动生成，已 gitignore）
 `-- .cache/           # 编译/运行日志、上次结果（自动生成，已 gitignore）
 ```

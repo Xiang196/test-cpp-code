@@ -309,6 +309,7 @@ Changelog 条目用英文。commit message 本身可以是中文，但 Changelog
 ## 另见
 
 - [如何使用 make](https://github.com/Xiang196/test-cpp-code/wiki/How-to-use-make.zh-CN)
+  （也包含用 `make wiki` 发布 wiki）
 - [Changelog](https://github.com/Xiang196/test-cpp-code/blob/main/Changelog.md)
 - [README（中文）](https://github.com/Xiang196/test-cpp-code/blob/main/README.zh-CN.md)
 - [README（English）](https://github.com/Xiang196/test-cpp-code#readme)

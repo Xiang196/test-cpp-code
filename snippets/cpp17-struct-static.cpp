@@ -1,4 +1,5 @@
 // @desc: see how static works in a class
+// @created: 2026-11-23
 
 #include <iostream>
 

@@ -1,4 +1,5 @@
 // @desc: std::jthread and stop_token; also shows @flags: -pthread
+// @created: 2026-11-20
 // @std: c++20
 // @flags: -pthread
 #include <iostream>
