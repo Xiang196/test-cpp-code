@@ -546,7 +546,7 @@ test-cpp-code - write small C++ snippets, compile and run them with one command.
   make data S=NAME        create data/NAME/ for a file-I/O snippet
   make edit S=NAME        open a snippet with $EDITOR (default: code)
   make clean              remove bin/, .cache/ and generated data/*/out/
-  make commit M="msg"     run tests, then commit and push
+  make commit M="msg"     interactive test + Changelog + commit + push
   make help               this help
 
 S=NAME accepts a snippet name (hello), a file name (hello.cpp) or a path

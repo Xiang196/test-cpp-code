@@ -52,7 +52,8 @@ make new NAME=NAME      新建片段（DESC="一句话" 可选）
 make data S=NAME        新建 data/NAME/（文件读写片段的工作目录）
 make edit S=NAME        用 $EDITOR（默认 code）打开片段
 make clean              删掉 bin/、.cache/ 和生成的 data/*/out/
-make commit M="msg"     跑测试、提交并推送（tools/commit.sh）
+make commit             交互式：message + Changelog、测试、提交、推送
+make commit M="msg"     同上，只是 message 预先填好
 make help               完整帮助
 ```
 
@@ -63,14 +64,30 @@ Tab 补全和直接粘路径都行。
 
 ## 提交
 
-`tools/commit.sh` 会先跑 `make test`，再 `git add -A`、提交并推送：
+`make commit`（或 `./tools/commit.sh`）是交互式的：先列出改动，依次询问
+commit message、Changelog 分类和一行条目，然后跑 `make test`、暂存、提交，最后
+询问是否 push：
 
 ```bash
-./tools/commit.sh "docs: update default flags"
-make commit M="docs: update default flags"   # 等价写法
+make commit
 ```
 
-`--no-test` 跳过测试关卡，`--no-push` 只提交不推送。
+可以预先填好一部分：
+
+```bash
+./tools/commit.sh -m "docs: update default flags" \
+  --changelog-category Changed \
+  --changelog-entry "Document the default flags and commit workflow."
+```
+
+条目会自动插到 `## [Unreleased]` 下。因为 CI 要求除 `README.zh-CN.md` 外的被
+跟踪文件都是纯 ASCII，Changelog 条目也必须是英文 ASCII。
+
+常用选项：`--no-test`、`--no-push`、`--no-changelog`、`--tracked-only`
+（不带上未跟踪文件）、`-y`（用默认值并跳过确认；除非加 `--no-push`，否则会直接
+push）。
+
+`make commit M="..."` 等价于 `./tools/commit.sh -m "..."`。
 
 ## 片段文件头约定
 
@@ -183,10 +200,12 @@ TC_CHECK(static_cast<bool>(std::getline(back, line)));
 ```text
 test-cpp-code/
 |-- Makefile          # 入口和变量
+|-- Changelog.md      # keep-a-changelog 变更记录，每次提交都更新
 |-- snippets/         # 你的片段：一个 .cpp 一个程序（日常唯一的编辑区）
 |-- data/             # 每个片段的工作目录：fixture 提交，out/ 忽略
 |-- include/tc.hpp    # 可选的小断言头，零依赖
 |-- tools/tc.sh       # 真正干活的引擎：list/run/watch/test/check/new/data
+|-- tools/commit.sh   # 交互式 message + Changelog + 测试 + 提交 + 推送
 |-- bin/              # 编译产物（自动生成，已 gitignore）
 `-- .cache/           # 编译/运行日志、上次结果（自动生成，已 gitignore）
 ```

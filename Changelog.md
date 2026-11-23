@@ -33,6 +33,8 @@ release is tagged, that section is renamed to the version and a new
 - `make test` runs every snippet with an empty stdin, so the suite cannot
   wait for typed input.
 - Both READMEs document the per-snippet data layout and the file-I/O rules.
+- `make commit` now prompts for a commit message and a `Changelog.md` entry,
+  runs tests, stages, commits, and offers to push.
 
 ### Fixed
 
@@ -40,6 +42,8 @@ release is tagged, that section is renamed to the version and a new
   EOF; `make test` therefore terminates.
 - `cpp17-fileIO-copy-text.cpp` now reports a clear error and exits non-zero
   when its input fixture cannot be opened.
+- `make commit` no longer forces C++17 over a snippet's `// @std:` header when
+  it invokes `make test` through the Makefile.
 
 ## [0.1.0] - 2026-11-20
 

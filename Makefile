@@ -76,7 +76,7 @@ edit:                 # open a snippet with $EDITOR: make edit S=xxx
 clean:                # remove bin/, .cache/ and generated data/*/out/
 	@$(BASH) $(TC) clean
 
-commit:               # test, commit and push: make commit M="message"
+commit:               # interactive commit + changelog: make commit [M="message"]
 	@$(BASH) ./tools/commit.sh "$(M)"
 
 help:                 # show full help

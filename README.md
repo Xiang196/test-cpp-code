@@ -52,7 +52,8 @@ make new NAME=NAME      create a snippet (DESC="one line" optional)
 make data S=NAME        create data/NAME/ for a file-I/O snippet
 make edit S=NAME        open with $EDITOR (default: code)
 make clean              remove bin/, .cache/ and generated data/*/out/
-make commit M="msg"     test, commit and push (tools/commit.sh)
+make commit             interactive: message + Changelog, test, commit, push
+make commit M="msg"     same, with the message already filled in
 make help               full help
 ```
 
@@ -64,14 +65,31 @@ completion and pasted paths work.
 
 ## Committing
 
-`tools/commit.sh` runs `make test`, stages everything, commits and pushes:
+`make commit` (or `./tools/commit.sh`) is interactive. It shows the changed
+files, asks for a Conventional Commits message and a `Changelog.md` entry
+(category plus one-line text), runs `make test`, stages the files, commits,
+and offers to push:
 
 ```bash
-./tools/commit.sh "docs: update default flags"
-make commit M="docs: update default flags"   # same thing
+make commit
 ```
 
-`--no-test` skips the test gate, `--no-push` stops after the commit.
+To prefill parts of it:
+
+```bash
+./tools/commit.sh -m "docs: update default flags" \
+  --changelog-category Changed \
+  --changelog-entry "Document the default flags and commit workflow."
+```
+
+The entry is inserted under `## [Unreleased]`. It has to stay ASCII because CI
+requires every tracked file except `README.zh-CN.md` to be pure ASCII.
+
+Useful options: `--no-test`, `--no-push`, `--no-changelog`, `--tracked-only`
+(leave untracked files alone), and `-y` (accept defaults and skip
+confirmations; this also pushes unless `--no-push` is given).
+
+`make commit M="..."` is a shortcut for `./tools/commit.sh -m "..."`.
 
 ## Snippet header convention
 
@@ -195,10 +213,12 @@ ASCII fixture for CI, or move that probe to a real CMake project.
 ```text
 test-cpp-code/
 |-- Makefile          # entry points and variables
+|-- Changelog.md      # keep-a-changelog release notes; every commit updates it
 |-- snippets/         # your snippets: one .cpp = one program (the only place you edit daily)
 |-- data/             # per-snippet working dirs: fixtures committed, out/ ignored
 |-- include/tc.hpp    # optional tiny assertion header, zero dependencies
 |-- tools/tc.sh       # the actual engine: list/run/watch/test/check/new/data
+|-- tools/commit.sh   # interactive message + Changelog + test + commit + push
 |-- bin/              # build products (auto-generated, gitignored)
 `-- .cache/           # compiler/run logs and last results (auto-generated, gitignored)
 ```
